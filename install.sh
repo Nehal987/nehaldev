@@ -15,13 +15,15 @@ if command -v dpkg &> /dev/null; then
 fi
 
 # 2. Install Core Packages (Force Accept New Configs)
-echo -e "\033[1;33m[*] Installing System Dependencies...\033[0m"
-# Update repositories
 yes | pkg update -y
 # Upgrade with force-confnew to accept maintainer scripts automatically
 yes | pkg upgrade -y -o Dpkg::Options::="--force-confnew"
 
-yes | pkg install python python-cryptography rust binutils build-essential git pkg-config libjpeg-turbo libcrypt ndk-sysroot clang libffi termux-api procps debianutils x11-repo -y -o Dpkg::Options::="--force-confnew"
+# Install X11 and TUR Repos explicitly first
+yes | pkg install x11-repo tur-repo -y -o Dpkg::Options::="--force-confnew"
+
+# Install ALL dependencies including X11 bridge and XFCE4
+yes | pkg install python python-cryptography rust binutils build-essential git pkg-config libjpeg-turbo libcrypt ndk-sysroot clang libffi termux-api procps debianutils termux-x11-nightly xfce4 -y -o Dpkg::Options::="--force-confnew"
 
 # 3. Install Chromium (Simple Method)
 echo -e "\033[1;33m[*] Installing Chromium...\033[0m"
