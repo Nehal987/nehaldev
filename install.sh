@@ -17,12 +17,16 @@ apt-get update -y
 # 3. Install Core System Packages
 echo -e "\033[1;33m[*] Installing System Dependencies...\033[0m"
 # Added debianutils for 'which' command, kept other essentials
-yes | pkg update && pkg upgrade -y
-yes | pkg install python python-cryptography rust binutils build-essential git pkg-config libjpeg-turbo libcrypt ndk-sysroot clang libffi termux-api procps debianutils x11-repo -y
+# Force "New" config files (Auto Y response behavior for configs)
+export DEBIAN_FRONTEND=noninteractive
+yes | pkg update
+yes | pkg upgrade -y -o Dpkg::Options::="--force-confnew"
+
+yes | pkg install python python-cryptography rust binutils build-essential git pkg-config libjpeg-turbo libcrypt ndk-sysroot clang libffi termux-api procps debianutils x11-repo -y -o Dpkg::Options::="--force-confnew"
 
 # 4. Install Chromium (Simple Method from old.sh)
 echo -e "\033[1;33m[*] Installing Chromium...\033[0m"
-yes | pkg install chromium -y
+yes | pkg install chromium -y -o Dpkg::Options::="--force-confnew"
 
 # 5. Fix Chromium Path (Symlink if needed - from old.sh)
 echo -e "\033[1;33m[*] Checking Chromium paths...\033[0m"
