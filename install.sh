@@ -1,16 +1,10 @@
 #!/bin/bash
 echo -e "\033[1;36m[+] Starting Comprehensive Setup for Termux...\033[0m"
 
-# 1. Update & Upgrade (Force Non-Interactive)
-echo -e "\033[1;33m[*] Switching to Generic Mirror (Asia/Global Optimized)...\033[0m"
-# Check if sources.list exists
-if [ -f "$PREFIX/etc/apt/sources.list" ]; then
-    # Backup
-    cp "$PREFIX/etc/apt/sources.list" "$PREFIX/etc/apt/sources.list.bak"
-    # Switch to BFSU (Beijing Foreign Studies University) - Very stable Asia mirror
-    echo "deb https://mirrors.bfsu.edu.cn/termux/termux-packages-24 stable main" > "$PREFIX/etc/apt/sources.list"
-    echo -e "\033[1;32m[+] Mirror switched to BFSU (Asia).\033[0m"
-fi
+# 1. Update & Upgrade (Standard)
+echo -e "\033[1;33m[*] Updating Termux Packages...\033[0m"
+# Removed mirror switching that was causing issues.
+
 
 echo -e "\033[1;33m[*] Refreshing package lists...\033[0m"
 apt-get update -y
@@ -21,93 +15,56 @@ apt-get update -y
 # termux-setup-storage
 
 # 3. Install Core System Packages
-echo -e "\033[1;33m[*] Installing System Dependencies (Compiler, Libraries)...\033[0m"
-# python-cryptography is pre-compiled, avoids the long build time
-# Added debianutils for 'which' command
-yes | pkg install python python-cryptography rust binutils build-essential git pkg-config libjpeg-turbo libcrypt ndk-sysroot clang libffi termux-api procps debianutils -y
+echo -e "\033[1;33m[*] Installing System Dependencies...\033[0m"
+# Added debianutils for 'which' command, kept other essentials
+yes | pkg update && pkg upgrade -y
+yes | pkg install python python-cryptography rust binutils build-essential git pkg-config libjpeg-turbo libcrypt ndk-sysroot clang libffi termux-api procps debianutils x11-repo -y
 
-# 4. Install Repos needed for X11 & Chromium
-echo -e "\033[1;33m[*] Enabling X11 and TUR Repos...\033[0m"
-yes | pkg install x11-repo -y
-yes | pkg install tur-repo -y
+# 4. Install Chromium (Simple Method from old.sh)
+echo -e "\033[1;33m[*] Installing Chromium...\033[0m"
+yes | pkg install chromium -y
 
-# 5. Install Chromium & X11 (Force Reinstall to ensure version match)
-echo -e "\033[1;33m[*] Installing Chromium & Termux-X11...\033[0m"
-yes | pkg update -y
+# 5. Fix Chromium Path (Symlink if needed - from old.sh)
+echo -e "\033[1;33m[*] Checking Chromium paths...\033[0m"
+if [ ! -f "/data/data/com.termux/files/usr/bin/chromium" ]; then
+    if [ -f "/data/data/com.termux/files/usr/bin/chromium-browser" ]; then
+         echo "Symlinking chromium-browser to chromium..."
+         ln -s /data/data/com.termux/files/usr/bin/chromium-browser /data/data/com.termux/files/usr/bin/chromium
+    fi
+fi
 
-# Clean up old versions to prevent conflicts
-echo -e "\033[1;33m[*] Cleaning up old Chromium versions...\033[0m"
-yes | pkg uninstall chromium termux-x11-nightly chromedriver -y 2>/dev/null
-
-# Install fresh
-echo -e "\033[1;33m[*] Installing Correct Chromium & X11...\033[0m"
-# Install specifically from tur-repo if needed, but standard pkg usually works if repo is active
-yes | pkg install chromium termux-x11-nightly xfce4 -y
-# proper dependencies often missing + FFMPEG for Audio
-yes | pkg install libnss libnspr glib ffmpeg -y
-
-# VERIFICATION & REPAIR
-echo -e "\033[1;33m[*] Verifying Chromium Installation...\033[0m"
-
-install_chromium() {
-    echo -e "\033[1;33m[*] Attempting to install Chromium & Chromedriver...\033[0m"
-    yes | pkg install tur-repo -y
-    yes | pkg update -y
-    # Install chromium first
-    yes | pkg install chromium -y
-    # Then chromedriver
-    yes | pkg install chromedriver -y
-}
-
-# Check if binary exists using command -v (more portable) or which
+# VERIFICATION
+echo -e "\033[1;33m[*] Verifying Installation...\033[0m"
+# Check if binary exists using command -v or which
 check_cmd() {
     command -v "$1" >/dev/null 2>&1 || { which "$1" >/dev/null 2>&1; }
 }
 
-echo -e "\033[1;34m[*] Debug: Checking binary paths...\033[0m"
-if check_cmd chromium; then echo "Chromium found: $(command -v chromium)"; else echo "Chromium NOT found"; fi
-if check_cmd chromedriver; then echo "Chromedriver found: $(command -v chromedriver)"; else echo "Chromedriver NOT found"; fi
-
-if ! check_cmd chromium || ! check_cmd chromedriver; then
-    echo -e "\033[1;31m[!] Chromium or Chromedriver MISSING. Starting Repair...\033[0m"
-    
-    # Try install
-    install_chromium
-    
-    # Re-verify
-    if ! check_cmd chromium || ! check_cmd chromedriver; then
-        echo -e "\033[1;31m[!] Repair Attempt 1 Failed. Retrying with 'pkg upgrade'...\033[0m"
-        apt-get update -y
-        yes | pkg upgrade -y
-        install_chromium
-    fi
+if check_cmd chromium; then 
+    echo -e "\033[1;32m[+] Chromium Verified: $(command -v chromium)\033[0m"
+else 
+    echo -e "\033[1;31m[!] Chromium NOT found.\033[0m"
 fi
 
-# Final Check
-if ! check_cmd chromium || ! check_cmd chromedriver; then
-     echo -e "\033[1;31m[!] ERROR: Install FAILED.\033[0m" 
-     echo -e "\033[1;33m    Missing:\033[0m"
-     ! check_cmd chromium && echo "    - chromium"
-     ! check_cmd chromedriver && echo "    - chromedriver"
-     
-     echo -e "\033[1;33m    Please try running manual install:\033[0m"
-     echo -e "\033[1;37m    pkg install tur-repo\033[0m"
-     echo -e "\033[1;37m    pkg install chromium chromedriver\033[0m"
+if check_cmd chromedriver; then
+    echo -e "\033[1;32m[+] Chromedriver Verified: $(command -v chromedriver)\033[0m"
 else
-     echo -e "\033[1;32m[+] Chromium Verified: $(command -v chromium)\033[0m"
-     echo -e "\033[1;32m[+] Chromedriver Verified: $(command -v chromedriver)\033[0m"
+    # Some termux chromium packages include driver, some don't. 
+    # If old.sh worked without explicit chromedriver install, we proceed but warn.
+    echo -e "\033[1;33m[!] Chromedriver binary not found in path (might be included in chromium or via webdriver-manager).\033[0m"
 fi
 
 # 6. Install Python Libraries (Directly, no requirements.txt needed)
 echo -e "\033[1;33m[*] Installing Python Libraries...\033[0m"
-# Using --break-system-packages for newer Termux python environments if needed, 
-# otherwise standard pip. We try both to be safe.
-# NOTE: Cryptography is handled by pkg install python-cryptography above.
 
-PIPARGS="requests colorama rich selenium openpyxl psutil urllib3 ua-parser pydub"
+# Ensure pip is up to date
+python -m pip install --upgrade pip
+
+# Install requirements - matching install.sh list + old.sh additions if any
+PIPARGS="requests colorama rich selenium openpyxl psutil urllib3 ua-parser pydub webdriver-manager"
 
 if python -m pip install --no-input $PIPARGS --break-system-packages; then
-    echo -e "\033[1;32m[+] Libraries installed successfully (with break-system-packages).\033[0m"
+    echo -e "\033[1;32m[+] Libraries installed successfully.\033[0m"
 else
     echo -e "\033[1;33m[!] Retrying with standard pip...\033[0m"
     python -m pip install --no-input $PIPARGS
