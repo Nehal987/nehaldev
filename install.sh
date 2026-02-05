@@ -35,6 +35,19 @@ yes | pkg install chromium termux-x11-nightly xfce4 -y
 # proper dependencies often missing + FFMPEG for Audio
 yes | pkg install libnss libnspr glib ffmpeg -y
 
+# VERIFICATION
+if [ ! -f "$PREFIX/bin/chromium" ] && [ ! -f "$PREFIX/bin/chromedriver" ]; then
+    echo -e "\033[1;31m[!] CRITICAL: Chromium/Chromedriver NOT FOUND in $PREFIX/bin\033[0m"
+    echo -e "\033[1;33m[*] Attempting fallback installation...\033[0m"
+    yes | pkg install chromium -y
+fi
+
+if [ ! -f "$PREFIX/bin/chromium" ]; then
+     echo -e "\033[1;31m[!] ERROR: Chromium still incorrect. Manual install needed: 'pkg install chromium'\033[0m"
+else
+     echo -e "\033[1;32m[+] Chromium Verified: $(which chromium)\033[0m"
+fi
+
 # 6. Install Python Libraries (Directly, no requirements.txt needed)
 echo -e "\033[1;33m[*] Installing Python Libraries...\033[0m"
 # Using --break-system-packages for newer Termux python environments if needed, 
@@ -52,8 +65,9 @@ fi
 
 # 7. Move Files to Home Directory
 echo -e "\033[1;33m[*] Moving Bot to Home Screen...\033[0m"
-cp auth.py $HOME/auth.py
-cp README.md $HOME/README.md
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cp "$SCRIPT_DIR/auth.py" "$HOME/auth.py"
+cp "$SCRIPT_DIR/README.md" "$HOME/README.md"
 
 echo -e "\033[1;32m"
 echo "       INSTALLATION COMPLETE!             "
