@@ -33,7 +33,7 @@ echo -e "\033[1;33m[*] Installing Python Libraries...\033[0m"
 # otherwise standard pip. We try both to be safe.
 # NOTE: Cryptography is handled by pkg install python-cryptography above.
 
-PIPARGS="requests colorama rich selenium openpyxl psutil urllib3 groq ua-parser pydub"
+PIPARGS="requests colorama rich selenium openpyxl psutil urllib3 ua-parser pydub"
 
 if python -m pip install --no-input $PIPARGS --break-system-packages; then
     echo -e "\033[1;32m[+] Libraries installed successfully (with break-system-packages).\033[0m"
