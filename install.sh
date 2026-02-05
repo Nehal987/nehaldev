@@ -7,16 +7,20 @@ echo -e "\033[1;33m[*] Updating Termux Packages...\033[0m"
 # Force "New" config files (Auto Y response behavior)
 export DEBIAN_FRONTEND=noninteractive
 
-# Self-heal interrupted dpkg runs FIRST
-if [ -f "/data/data/com.termux/files/usr/bin/dpkg" ]; then
+# Self-heal interrupted dpkg runs FIRST (Auto Repair)
+if command -v dpkg &> /dev/null; then
     echo -e "\033[1;33m[*] Running dpkg self-repair...\033[0m"
-    yes | dpkg --configure -a --force-confnew
+    # Force configure any pending packages
+    yes | dpkg --configure -a --force-confnew || echo "dpkg configure returned code $?"
 fi
 
 # 2. Install Core Packages (Force Accept New Configs)
 echo -e "\033[1;33m[*] Installing System Dependencies...\033[0m"
-yes | pkg update
+# Update repositories
+yes | pkg update -y
+# Upgrade with force-confnew to accept maintainer scripts automatically
 yes | pkg upgrade -y -o Dpkg::Options::="--force-confnew"
+
 yes | pkg install python python-cryptography rust binutils build-essential git pkg-config libjpeg-turbo libcrypt ndk-sysroot clang libffi termux-api procps debianutils x11-repo -y -o Dpkg::Options::="--force-confnew"
 
 # 3. Install Chromium (Simple Method)
