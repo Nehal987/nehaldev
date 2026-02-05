@@ -2,9 +2,18 @@
 echo -e "\033[1;36m[+] Starting Comprehensive Setup for Termux...\033[0m"
 
 # 1. Update & Upgrade (Force Non-Interactive)
-echo -e "\033[1;33m[*] Updating Termux repositories...\033[0m"
-yes | pkg update -y
-yes | pkg upgrade -y -o Dpkg::Options::="--force-confnew"
+echo -e "\033[1;33m[*] Switching to Generic Mirror (Asia/Global Optimized)...\033[0m"
+# Check if sources.list exists
+if [ -f "$PREFIX/etc/apt/sources.list" ]; then
+    # Backup
+    cp "$PREFIX/etc/apt/sources.list" "$PREFIX/etc/apt/sources.list.bak"
+    # Switch to BFSU (Beijing Foreign Studies University) - Very stable Asia mirror
+    echo "deb https://mirrors.bfsu.edu.cn/termux/termux-packages-24 stable main" > "$PREFIX/etc/apt/sources.list"
+    echo -e "\033[1;32m[+] Mirror switched to BFSU (Asia).\033[0m"
+fi
+
+echo -e "\033[1;33m[*] Refreshing package lists...\033[0m"
+apt-get update -y
 
 # 2. Setup Storage (Skipped - User Handling Separately)
 # echo -e "\033[1;33m[*] Setting up storage permissions...\033[0m"
