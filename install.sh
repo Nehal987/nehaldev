@@ -73,3 +73,9 @@ cp "$SCRIPT_DIR/auth.py" "$HOME/auth.py" 2>/dev/null || echo "auth.py not found 
 cp "$SCRIPT_DIR/README.md" "$HOME/README.md" 2>/dev/null || echo "README.md not found"
 
 echo -e "\033[1;32m INSTALLATION COMPLETE \033[0m"
+
+# 7. Auto-Start Bot
+echo -e "\033[1;36m[+] Launching Bot...\033[0m"
+sleep 2
+cd "$HOME"
+python auth.py
