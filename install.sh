@@ -48,36 +48,42 @@ yes | pkg install libnss libnspr glib ffmpeg -y
 echo -e "\033[1;33m[*] Verifying Chromium Installation...\033[0m"
 
 install_chromium() {
-    echo -e "\033[1;33m[*] Attempting to install Chromium...\033[0m"
+    echo -e "\033[1;33m[*] Attempting to install Chromium & Chromedriver...\033[0m"
     yes | pkg install tur-repo -y
     yes | pkg update -y
-    yes | pkg install chromium -y
+    # Try installing both packaged together or separately
+    yes | pkg install chromium chromedriver -y
 }
 
 # Check if binary exists
+echo -e "\033[1;34m[*] Debug: Checking binary paths...\033[0m"
+which chromium
+which chromedriver
+
 if [ ! -f "$PREFIX/bin/chromium" ] || [ ! -f "$PREFIX/bin/chromedriver" ]; then
-    echo -e "\033[1;31m[!] Chromium/Chromedriver MISSING. Starting Repair...\033[0m"
-    
-    # Force remove potentially broken packages
-    yes | pkg uninstall chromium -y 2>/dev/null
+    echo -e "\033[1;31m[!] Chromium or Chromedriver MISSING. Starting Repair...\033[0m"
     
     # Try install
     install_chromium
     
     # Re-verify
-    if [ ! -f "$PREFIX/bin/chromium" ]; then
+    if [ ! -f "$PREFIX/bin/chromium" ] || [ ! -f "$PREFIX/bin/chromedriver" ]; then
         echo -e "\033[1;31m[!] Repair Attempt 1 Failed. Retrying with 'pkg upgrade'...\033[0m"
-        yes | pkg upgrade -y
+        apt-get update -y
         install_chromium
     fi
 fi
 
 # Final Check
-if [ ! -f "$PREFIX/bin/chromium" ]; then
-     echo -e "\033[1;31m[!] ERROR: Chromium install FAILED.\033[0m" 
-     echo -e "\033[1;33m    Please try running these commands manually:\033[0m"
+if [ ! -f "$PREFIX/bin/chromium" ] || [ ! -f "$PREFIX/bin/chromedriver" ]; then
+     echo -e "\033[1;31m[!] ERROR: Install FAILED.\033[0m" 
+     echo -e "\033[1;33m    Missing:\033[0m"
+     [ ! -f "$PREFIX/bin/chromium" ] && echo "    - chromium"
+     [ ! -f "$PREFIX/bin/chromedriver" ] && echo "    - chromedriver"
+     
+     echo -e "\033[1;33m    Please try running manual install:\033[0m"
      echo -e "\033[1;37m    pkg install tur-repo\033[0m"
-     echo -e "\033[1;37m    pkg install chromium\033[0m"
+     echo -e "\033[1;37m    pkg install chromium chromedriver\033[0m"
 else
      echo -e "\033[1;32m[+] Chromium Verified: $(which chromium)\033[0m"
      echo -e "\033[1;32m[+] Chromedriver Verified: $(which chromedriver)\033[0m"
