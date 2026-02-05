@@ -35,17 +35,32 @@ yes | pkg install chromium termux-x11-nightly xfce4 -y
 # proper dependencies often missing + FFMPEG for Audio
 yes | pkg install libnss libnspr glib ffmpeg -y
 
-# VERIFICATION
-if [ ! -f "$PREFIX/bin/chromium" ] && [ ! -f "$PREFIX/bin/chromedriver" ]; then
-    echo -e "\033[1;31m[!] CRITICAL: Chromium/Chromedriver NOT FOUND in $PREFIX/bin\033[0m"
-    echo -e "\033[1;33m[*] Attempting fallback installation...\033[0m"
+# VERIFICATION & REPAIR
+echo -e "\033[1;33m[*] Verifying Chromium Installation...\033[0m"
+
+# 1. Check Chromium
+if [ ! -f "$PREFIX/bin/chromium" ]; then
+    echo -e "\033[1;31m[!] Chromium binary MISSING. Attempting fix...\033[0m"
+    echo -e "\033[1;33m[*] Ensuring tur-repo is active...\033[0m"
+    yes | pkg install tur-repo -y
+    yes | pkg update -y
+    echo -e "\033[1;33m[*] Installing Chromium (Attempt 2)...\033[0m"
     yes | pkg install chromium -y
 fi
 
+# 2. Check Chromedriver
+if [ ! -f "$PREFIX/bin/chromedriver" ]; then
+    echo -e "\033[1;33m[*] Chromedriver binary MISSING. Attempting fix...\033[0m"
+    yes | pkg install chromium -y
+fi
+
+# Final Check
 if [ ! -f "$PREFIX/bin/chromium" ]; then
-     echo -e "\033[1;31m[!] ERROR: Chromium still incorrect. Manual install needed: 'pkg install chromium'\033[0m"
+     echo -e "\033[1;31m[!] ERROR: Chromium install FAILED.\033[0m" 
+     echo -e "\033[1;33m    Please try running: 'pkg install tur-repo' then 'pkg install chromium' manually.\033[0m"
 else
      echo -e "\033[1;32m[+] Chromium Verified: $(which chromium)\033[0m"
+     echo -e "\033[1;32m[+] Chromedriver Verified: $(which chromedriver)\033[0m"
 fi
 
 # 6. Install Python Libraries (Directly, no requirements.txt needed)
