@@ -38,26 +38,37 @@ yes | pkg install libnss libnspr glib ffmpeg -y
 # VERIFICATION & REPAIR
 echo -e "\033[1;33m[*] Verifying Chromium Installation...\033[0m"
 
-# 1. Check Chromium
-if [ ! -f "$PREFIX/bin/chromium" ]; then
-    echo -e "\033[1;31m[!] Chromium binary MISSING. Attempting fix...\033[0m"
-    echo -e "\033[1;33m[*] Ensuring tur-repo is active...\033[0m"
+install_chromium() {
+    echo -e "\033[1;33m[*] Attempting to install Chromium...\033[0m"
     yes | pkg install tur-repo -y
     yes | pkg update -y
-    echo -e "\033[1;33m[*] Installing Chromium (Attempt 2)...\033[0m"
     yes | pkg install chromium -y
-fi
+}
 
-# 2. Check Chromedriver
-if [ ! -f "$PREFIX/bin/chromedriver" ]; then
-    echo -e "\033[1;33m[*] Chromedriver binary MISSING. Attempting fix...\033[0m"
-    yes | pkg install chromium -y
+# Check if binary exists
+if [ ! -f "$PREFIX/bin/chromium" ] || [ ! -f "$PREFIX/bin/chromedriver" ]; then
+    echo -e "\033[1;31m[!] Chromium/Chromedriver MISSING. Starting Repair...\033[0m"
+    
+    # Force remove potentially broken packages
+    yes | pkg uninstall chromium -y 2>/dev/null
+    
+    # Try install
+    install_chromium
+    
+    # Re-verify
+    if [ ! -f "$PREFIX/bin/chromium" ]; then
+        echo -e "\033[1;31m[!] Repair Attempt 1 Failed. Retrying with 'pkg upgrade'...\033[0m"
+        yes | pkg upgrade -y
+        install_chromium
+    fi
 fi
 
 # Final Check
 if [ ! -f "$PREFIX/bin/chromium" ]; then
      echo -e "\033[1;31m[!] ERROR: Chromium install FAILED.\033[0m" 
-     echo -e "\033[1;33m    Please try running: 'pkg install tur-repo' then 'pkg install chromium' manually.\033[0m"
+     echo -e "\033[1;33m    Please try running these commands manually:\033[0m"
+     echo -e "\033[1;37m    pkg install tur-repo\033[0m"
+     echo -e "\033[1;37m    pkg install chromium\033[0m"
 else
      echo -e "\033[1;32m[+] Chromium Verified: $(which chromium)\033[0m"
      echo -e "\033[1;32m[+] Chromedriver Verified: $(which chromedriver)\033[0m"
