@@ -18,6 +18,9 @@ from colorama import Fore, Style, init
 
 init(autoreset=True)
 
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 # CONFIGURATION
 # CONFIGURATION
 SERVER_URL = "https://fb-reset-tool-v2.fly.dev/auth" # Update this after deployment!
@@ -137,7 +140,7 @@ def main():
                 "session_key": encrypted_session_key_b64
             }
             
-            response = requests.post(SERVER_URL, json=payload, timeout=10)
+            response = requests.post(SERVER_URL, json=payload, timeout=10, verify=False)
             
             if response.status_code != 200:
                 print(Fore.RED + f"[!] Authorization Failed (Server: {response.status_code})")
