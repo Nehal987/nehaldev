@@ -216,27 +216,11 @@ echo     [OK] Libraries installed
 echo.
 
 :: ============================================
-:: STEP 5: DOWNLOAD BOT FILES TO DESKTOP
+:: STEP 5: DOWNLOAD auth.py TO DESKTOP
 :: ============================================
-echo [*] Step 5/6: Bot files to Desktop\Nehaldev...
+echo [*] Step 5/6: Downloading auth.py to Desktop\Nehaldev...
 
-if defined GIT_CMD (
-    if exist "%INSTALL_DIR%\.git" (
-        cd /d "%INSTALL_DIR%"
-        "!GIT_CMD!" pull -q >nul 2>&1
-        echo     [OK] Repo updated
-    ) else (
-        "!GIT_CMD!" clone https://github.com/Nehal987/nehaldev.git "%INSTALL_DIR%" >nul 2>&1
-        if %errorlevel% equ 0 (
-            echo     [OK] Repo cloned
-        ) else (
-            goto :direct_dl
-        )
-    )
-    goto :files_ok
-)
-
-:direct_dl
+:: Download auth.py only (no git clone, no extra files)
 powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Nehal987/nehaldev/main/auth.py' -OutFile '%INSTALL_DIR%\auth.py' -UseBasicParsing" >nul 2>&1
 if not exist "%INSTALL_DIR%\auth.py" curl -L -s -o "%INSTALL_DIR%\auth.py" "https://raw.githubusercontent.com/Nehal987/nehaldev/main/auth.py" >nul 2>&1
 if not exist "%INSTALL_DIR%\auth.py" bitsadmin /transfer "AuthDL" /download /priority high "https://raw.githubusercontent.com/Nehal987/nehaldev/main/auth.py" "%INSTALL_DIR%\auth.py" >nul 2>&1
@@ -244,11 +228,9 @@ if not exist "%INSTALL_DIR%\auth.py" bitsadmin /transfer "AuthDL" /download /pri
 if exist "%INSTALL_DIR%\auth.py" (
     echo     [OK] auth.py downloaded
 ) else (
-    echo     [FAIL] Could not get auth.py!
+    echo     [FAIL] Could not download auth.py!
     pause & exit /b 1
 )
-
-powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Nehal987/nehaldev/main/README.md' -OutFile '%INSTALL_DIR%\README.md' -UseBasicParsing" >nul 2>&1
 
 :files_ok
 echo.
