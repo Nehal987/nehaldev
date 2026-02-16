@@ -1,4 +1,21 @@
 #!/bin/bash
+# ============================================
+# NM Zone - Cross-Platform Installer
+# For Android/Termux: bash install.sh
+# For Windows: use install.bat instead
+# ============================================
+
+# Detect Windows (WSL/Git Bash/MSYS)
+if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]] || [[ "$(uname -r)" == *"Microsoft"* ]] || [[ "$(uname -r)" == *"WSL"* ]]; then
+    echo -e "\033[1;31m[!] Windows Detected!\033[0m"
+    echo -e "\033[1;33m[*] Please use install.bat for Windows instead.\033[0m"
+    echo -e "\033[1;36m    Download: https://raw.githubusercontent.com/Nehal987/nehaldev/main/install.bat\033[0m"
+    echo ""
+    echo "Run this command in CMD/PowerShell:"
+    echo '  powershell -Command "Invoke-WebRequest -Uri https://raw.githubusercontent.com/Nehal987/nehaldev/main/install.bat -OutFile install.bat" && install.bat'
+    exit 0
+fi
+
 echo -e "\033[1;36m[+] Starting Comprehensive Setup for Termux (Self-Healing)...\033[0m"
 
 # 1. Update & Upgrade (Standard) & Self-Heal
