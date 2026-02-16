@@ -6,15 +6,15 @@ color 0B
 echo.
 echo  ============================================
 echo   NM Zone - One-Click Windows Setup
+echo   Fully Automatic - No Input Needed
 echo  ============================================
 echo.
 
 :: ============================================
-:: CHECK ADMIN PRIVILEGES
+:: AUTO ADMIN ELEVATE (No prompt, just UAC)
 :: ============================================
 net session >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [!] Requesting Administrator privileges...
     powershell -Command "Start-Process cmd -ArgumentList '/c \"%~f0\"' -Verb RunAs"
     exit /b
 )
@@ -22,192 +22,277 @@ if %errorlevel% neq 0 (
 echo [+] Running as Administrator...
 echo.
 
+:: Set TLS 1.2 globally
+powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12" >nul 2>&1
+
+:: Install folder on DESKTOP
+set "INSTALL_DIR=%USERPROFILE%\Desktop\Nehaldev"
+if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
+
 :: ============================================
-:: STEP 1: CHECK / INSTALL PYTHON
+:: STEP 1: INSTALL PYTHON (Auto)
 :: ============================================
-echo [*] Checking for Python...
-where python >nul 2>&1
-if %errorlevel% equ 0 (
-    for /f "tokens=*" %%i in ('python --version 2^>^&1') do set PYVER=%%i
-    echo [+] Found: !PYVER!
+echo [*] Step 1/6: Python...
+
+set "PYTHON_CMD="
+where python >nul 2>&1 && set "PYTHON_CMD=python"
+if not defined PYTHON_CMD (
+    if exist "C:\Python312\python.exe" set "PYTHON_CMD=C:\Python312\python.exe"
+    if exist "%LocalAppData%\Programs\Python\Python312\python.exe" set "PYTHON_CMD=%LocalAppData%\Programs\Python\Python312\python.exe"
+    if exist "%ProgramFiles%\Python312\python.exe" set "PYTHON_CMD=%ProgramFiles%\Python312\python.exe"
+)
+
+if defined PYTHON_CMD (
+    echo     [OK] Already installed
     goto :python_done
 )
 
-echo [!] Python not found. Installing Python 3.12...
-echo [*] Downloading Python installer...
-
+echo     [*] Downloading Python 3.12...
 set "PY_URL=https://www.python.org/ftp/python/3.12.8/python-3.12.8-amd64.exe"
 set "PY_INSTALLER=%TEMP%\python_installer.exe"
 
-powershell -Command "Invoke-WebRequest -Uri '%PY_URL%' -OutFile '%PY_INSTALLER%'" 2>nul
-if not exist "%PY_INSTALLER%" (
-    echo [!] Download failed. Trying with curl...
-    curl -L -o "%PY_INSTALLER%" "%PY_URL%"
-)
+powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%PY_URL%' -OutFile '%PY_INSTALLER%' -UseBasicParsing" >nul 2>&1
+if not exist "%PY_INSTALLER%" curl -L -s -o "%PY_INSTALLER%" "%PY_URL%" >nul 2>&1
+if not exist "%PY_INSTALLER%" bitsadmin /transfer "PythonDL" /download /priority high "%PY_URL%" "%PY_INSTALLER%" >nul 2>&1
 
 if not exist "%PY_INSTALLER%" (
-    echo [ERROR] Could not download Python. Please install manually from python.org
-    pause
-    exit /b 1
+    echo     [FAIL] Download failed. Get it from python.org
+    pause & exit /b 1
 )
 
-echo [*] Installing Python silently (this may take a minute)...
-"%PY_INSTALLER%" /quiet InstallAllUsers=1 PrependPath=1 Include_pip=1 Include_test=0
+echo     [*] Installing Python (auto, ~2 min)...
+"%PY_INSTALLER%" /quiet InstallAllUsers=1 PrependPath=1 Include_pip=1 Include_test=0 Include_launcher=1
+timeout /t 10 /nobreak >nul
+del "%PY_INSTALLER%" 2>nul
 
 :: Refresh PATH
-set "PATH=%LocalAppData%\Programs\Python\Python312;%LocalAppData%\Programs\Python\Python312\Scripts;C:\Python312;C:\Python312\Scripts;%ProgramFiles%\Python312;%ProgramFiles%\Python312\Scripts;%PATH%"
+set "PATH=C:\Python312;C:\Python312\Scripts;%ProgramFiles%\Python312;%ProgramFiles%\Python312\Scripts;%LocalAppData%\Programs\Python\Python312;%LocalAppData%\Programs\Python\Python312\Scripts;%PATH%"
+for /f "tokens=2*" %%a in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "PATH=%%b;%PATH%"
 
-:: Verify
-timeout /t 3 /nobreak >nul
-where python >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [WARNING] Python installed but PATH not updated yet.
-    echo [*] Trying common install locations...
-    if exist "C:\Python312\python.exe" set "PATH=C:\Python312;C:\Python312\Scripts;%PATH%"
-    if exist "%LocalAppData%\Programs\Python\Python312\python.exe" set "PATH=%LocalAppData%\Programs\Python\Python312;%LocalAppData%\Programs\Python\Python312\Scripts;%PATH%"
-    if exist "%ProgramFiles%\Python312\python.exe" set "PATH=%ProgramFiles%\Python312;%ProgramFiles%\Python312\Scripts;%PATH%"
+set "PYTHON_CMD="
+where python >nul 2>&1 && set "PYTHON_CMD=python"
+if not defined PYTHON_CMD (
+    if exist "C:\Python312\python.exe" set "PYTHON_CMD=C:\Python312\python.exe"
+    if exist "%ProgramFiles%\Python312\python.exe" set "PYTHON_CMD=%ProgramFiles%\Python312\python.exe"
+    if exist "%LocalAppData%\Programs\Python\Python312\python.exe" set "PYTHON_CMD=%LocalAppData%\Programs\Python\Python312\python.exe"
 )
 
-del "%PY_INSTALLER%" 2>nul
-echo [+] Python installation complete!
+if defined PYTHON_CMD (
+    echo     [OK] Python installed
+) else (
+    echo     [FAIL] Restart PC and run again
+    pause & exit /b 1
+)
 
 :python_done
 echo.
 
 :: ============================================
-:: STEP 2: CHECK / INSTALL GIT
+:: STEP 2: INSTALL GIT (Auto)
 :: ============================================
-echo [*] Checking for Git...
-where git >nul 2>&1
-if %errorlevel% equ 0 (
-    for /f "tokens=*" %%i in ('git --version 2^>^&1') do set GITVER=%%i
-    echo [+] Found: !GITVER!
+echo [*] Step 2/6: Git...
+
+set "GIT_CMD="
+where git >nul 2>&1 && set "GIT_CMD=git"
+if not defined GIT_CMD (
+    if exist "C:\Program Files\Git\bin\git.exe" set "GIT_CMD=C:\Program Files\Git\bin\git.exe"
+)
+
+if defined GIT_CMD (
+    echo     [OK] Already installed
     goto :git_done
 )
 
-echo [!] Git not found. Installing Git for Windows...
-echo [*] Downloading Git installer...
-
+echo     [*] Downloading Git...
 set "GIT_URL=https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe"
 set "GIT_INSTALLER=%TEMP%\git_installer.exe"
 
-powershell -Command "Invoke-WebRequest -Uri '%GIT_URL%' -OutFile '%GIT_INSTALLER%'" 2>nul
-if not exist "%GIT_INSTALLER%" (
-    echo [!] Download failed. Trying with curl...
-    curl -L -o "%GIT_INSTALLER%" "%GIT_URL%"
-)
+powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%GIT_URL%' -OutFile '%GIT_INSTALLER%' -UseBasicParsing" >nul 2>&1
+if not exist "%GIT_INSTALLER%" curl -L -s -o "%GIT_INSTALLER%" "%GIT_URL%" >nul 2>&1
+if not exist "%GIT_INSTALLER%" bitsadmin /transfer "GitDL" /download /priority high "%GIT_URL%" "%GIT_INSTALLER%" >nul 2>&1
 
 if not exist "%GIT_INSTALLER%" (
-    echo [ERROR] Could not download Git. Please install manually from git-scm.com
-    pause
-    exit /b 1
+    echo     [WARN] Git download failed. Skipping (will download files directly).
+    goto :git_done
 )
 
-echo [*] Installing Git silently...
+echo     [*] Installing Git (auto)...
 "%GIT_INSTALLER%" /VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS /COMPONENTS="icons,ext\reg\shellhere,assoc,assoc_sh"
-
-:: Refresh PATH for Git
-set "PATH=C:\Program Files\Git\bin;C:\Program Files\Git\cmd;%PATH%"
-
-timeout /t 3 /nobreak >nul
+timeout /t 8 /nobreak >nul
 del "%GIT_INSTALLER%" 2>nul
-echo [+] Git installation complete!
+
+set "PATH=C:\Program Files\Git\bin;C:\Program Files\Git\cmd;%PATH%"
+set "GIT_CMD="
+where git >nul 2>&1 && set "GIT_CMD=git"
+if not defined GIT_CMD (
+    if exist "C:\Program Files\Git\bin\git.exe" set "GIT_CMD=C:\Program Files\Git\bin\git.exe"
+)
+
+if defined GIT_CMD (
+    echo     [OK] Git installed
+) else (
+    echo     [WARN] Git needs restart. Using direct download.
+)
 
 :git_done
 echo.
 
 :: ============================================
-:: STEP 3: UPGRADE PIP
+:: STEP 3: INSTALL ADB (Android Platform Tools)
 :: ============================================
-echo [*] Upgrading pip...
-python -m pip install --upgrade pip --quiet 2>nul
-echo [+] pip upgraded.
-echo.
+echo [*] Step 3/6: ADB (Android Debug Bridge)...
 
-:: ============================================
-:: STEP 4: INSTALL PYTHON DEPENDENCIES
-:: ============================================
-echo [*] Installing Python libraries...
-
-set "PIPARGS=requests colorama rich cryptography openpyxl urllib3"
-
-python -m pip install %PIPARGS% --quiet
-if %errorlevel% equ 0 (
-    echo [+] All libraries installed successfully!
-) else (
-    echo [!] Retrying with --break-system-packages flag...
-    python -m pip install %PIPARGS% --break-system-packages --quiet
+:: Check if adb already exists
+set "ADB_CMD="
+where adb >nul 2>&1 && set "ADB_CMD=adb"
+if not defined ADB_CMD (
+    if exist "C:\platform-tools\adb.exe" set "ADB_CMD=C:\platform-tools\adb.exe"
+    if exist "%USERPROFILE%\platform-tools\adb.exe" set "ADB_CMD=%USERPROFILE%\platform-tools\adb.exe"
+    if exist "%INSTALL_DIR%\platform-tools\adb.exe" set "ADB_CMD=%INSTALL_DIR%\platform-tools\adb.exe"
 )
+
+if defined ADB_CMD (
+    echo     [OK] Already installed: !ADB_CMD!
+    goto :adb_done
+)
+
+echo     [*] Downloading Android Platform Tools...
+set "ADB_URL=https://dl.google.com/android/repository/platform-tools-latest-windows.zip"
+set "ADB_ZIP=%TEMP%\platform-tools.zip"
+set "ADB_EXTRACT=C:\platform-tools"
+
+powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%ADB_URL%' -OutFile '%ADB_ZIP%' -UseBasicParsing" >nul 2>&1
+if not exist "%ADB_ZIP%" curl -L -s -o "%ADB_ZIP%" "%ADB_URL%" >nul 2>&1
+if not exist "%ADB_ZIP%" bitsadmin /transfer "ADBDL" /download /priority high "%ADB_URL%" "%ADB_ZIP%" >nul 2>&1
+
+if not exist "%ADB_ZIP%" (
+    echo     [WARN] ADB download failed. Install manually from developer.android.com
+    goto :adb_done
+)
+
+echo     [*] Extracting ADB to C:\platform-tools...
+powershell -Command "Expand-Archive -Path '%ADB_ZIP%' -DestinationPath 'C:\' -Force" >nul 2>&1
+del "%ADB_ZIP%" 2>nul
+
+:: Add ADB to system PATH permanently
+set "PATH=C:\platform-tools;%PATH%"
+reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2>nul | findstr /i /c:"platform-tools" >nul 2>&1
+if %errorlevel% neq 0 (
+    echo     [*] Adding ADB to system PATH...
+    for /f "tokens=2*" %%a in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "OLDPATH=%%b"
+    reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path /t REG_EXPAND_SZ /d "!OLDPATH!;C:\platform-tools" /f >nul 2>&1
+)
+
+set "ADB_CMD="
+where adb >nul 2>&1 && set "ADB_CMD=adb"
+if not defined ADB_CMD (
+    if exist "C:\platform-tools\adb.exe" set "ADB_CMD=C:\platform-tools\adb.exe"
+)
+
+if defined ADB_CMD (
+    echo     [OK] ADB installed
+) else (
+    echo     [WARN] ADB extract may have failed
+)
+
+:adb_done
 echo.
 
 :: ============================================
-:: STEP 5: CLONE REPO / DOWNLOAD FILES
+:: STEP 4: INSTALL PYTHON LIBRARIES (Auto)
 :: ============================================
-echo [*] Setting up bot files...
+echo [*] Step 4/6: Python Libraries...
 
-set "INSTALL_DIR=%USERPROFILE%\NMZone"
+!PYTHON_CMD! -m ensurepip >nul 2>&1
+!PYTHON_CMD! -m pip install --upgrade pip -q >nul 2>&1
 
-if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
+echo     Installing: requests colorama rich cryptography openpyxl urllib3...
+!PYTHON_CMD! -m pip install requests colorama rich cryptography openpyxl urllib3 -q
+if %errorlevel% neq 0 (
+    !PYTHON_CMD! -m pip install requests colorama rich cryptography openpyxl urllib3 --break-system-packages -q
+)
 
-:: Try Git clone first
-where git >nul 2>&1
-if %errorlevel% equ 0 (
-    if exist "%INSTALL_DIR%\nehaldev" (
-        echo [*] Updating existing repo...
-        cd /d "%INSTALL_DIR%\nehaldev"
-        git pull --quiet
+echo     [OK] Libraries installed
+echo.
+
+:: ============================================
+:: STEP 5: DOWNLOAD BOT FILES TO DESKTOP
+:: ============================================
+echo [*] Step 5/6: Bot files to Desktop\Nehaldev...
+
+if defined GIT_CMD (
+    if exist "%INSTALL_DIR%\.git" (
+        cd /d "%INSTALL_DIR%"
+        "!GIT_CMD!" pull -q >nul 2>&1
+        echo     [OK] Repo updated
     ) else (
-        echo [*] Cloning repository...
-        git clone https://github.com/Nehal987/nehaldev.git "%INSTALL_DIR%\nehaldev"
+        "!GIT_CMD!" clone https://github.com/Nehal987/nehaldev.git "%INSTALL_DIR%" >nul 2>&1
+        if %errorlevel% equ 0 (
+            echo     [OK] Repo cloned
+        ) else (
+            goto :direct_dl
+        )
     )
+    goto :files_ok
+)
+
+:direct_dl
+powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Nehal987/nehaldev/main/auth.py' -OutFile '%INSTALL_DIR%\auth.py' -UseBasicParsing" >nul 2>&1
+if not exist "%INSTALL_DIR%\auth.py" curl -L -s -o "%INSTALL_DIR%\auth.py" "https://raw.githubusercontent.com/Nehal987/nehaldev/main/auth.py" >nul 2>&1
+if not exist "%INSTALL_DIR%\auth.py" bitsadmin /transfer "AuthDL" /download /priority high "https://raw.githubusercontent.com/Nehal987/nehaldev/main/auth.py" "%INSTALL_DIR%\auth.py" >nul 2>&1
+
+if exist "%INSTALL_DIR%\auth.py" (
+    echo     [OK] auth.py downloaded
 ) else (
-    echo [*] Git not available, downloading files directly...
-    powershell -Command "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Nehal987/nehaldev/main/auth.py' -OutFile '%INSTALL_DIR%\auth.py'"
-    goto :files_ready
+    echo     [FAIL] Could not get auth.py!
+    pause & exit /b 1
 )
 
-:: Copy auth.py to main install dir for easy access
-if exist "%INSTALL_DIR%\nehaldev\auth.py" (
-    copy /Y "%INSTALL_DIR%\nehaldev\auth.py" "%INSTALL_DIR%\auth.py" >nul
-)
+powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Nehal987/nehaldev/main/README.md' -OutFile '%INSTALL_DIR%\README.md' -UseBasicParsing" >nul 2>&1
 
-:files_ready
-echo [+] Bot files ready at: %INSTALL_DIR%
+:files_ok
 echo.
 
 :: ============================================
-:: STEP 6: VERIFY INSTALLATION
+:: STEP 6: VERIFICATION
 :: ============================================
 echo  ============================================
 echo   VERIFICATION
 echo  ============================================
 echo.
 
-where python >nul 2>&1
+!PYTHON_CMD! --version >nul 2>&1
 if %errorlevel% equ 0 (
-    for /f "tokens=*" %%i in ('python --version 2^>^&1') do echo  [OK] %%i
+    for /f "tokens=*" %%i in ('!PYTHON_CMD! --version 2^>^&1') do echo  [OK] %%i
 ) else (
-    echo  [FAIL] Python not found in PATH
+    echo  [FAIL] Python
 )
 
-where git >nul 2>&1
-if %errorlevel% equ 0 (
-    for /f "tokens=*" %%i in ('git --version 2^>^&1') do echo  [OK] %%i
+if defined GIT_CMD (
+    for /f "tokens=*" %%i in ('"!GIT_CMD!" --version 2^>^&1') do echo  [OK] %%i
 ) else (
-    echo  [WARN] Git not found in PATH
+    echo  [--] Git (not critical)
 )
 
-python -c "import requests, colorama, rich, cryptography" 2>nul
+if defined ADB_CMD (
+    for /f "tokens=*" %%i in ('"!ADB_CMD!" version 2^>^&1') do (
+        echo  [OK] %%i
+        goto :adb_ver_done
+    )
+)
+:adb_ver_done
+
+!PYTHON_CMD! -c "import requests, colorama, rich, cryptography" >nul 2>&1
 if %errorlevel% equ 0 (
-    echo  [OK] All Python libraries verified
+    echo  [OK] All Python libraries
 ) else (
-    echo  [WARN] Some libraries may be missing
+    echo  [WARN] Some libraries missing
 )
 
 if exist "%INSTALL_DIR%\auth.py" (
-    echo  [OK] auth.py found
+    echo  [OK] auth.py on Desktop
 ) else (
-    echo  [FAIL] auth.py not found
+    echo  [FAIL] auth.py missing
 )
 
 echo.
@@ -215,16 +300,17 @@ echo  ============================================
 echo   INSTALLATION COMPLETE!
 echo  ============================================
 echo.
-echo  Bot Location: %INSTALL_DIR%
+echo  Location : %INSTALL_DIR%
+echo  Run again: double-click auth.py
 echo.
 
 :: ============================================
-:: STEP 7: AUTO-START BOT
+:: AUTO LAUNCH BOT
 :: ============================================
-echo [+] Launching Bot in 3 seconds...
+echo [+] Launching Bot...
 timeout /t 3 /nobreak >nul
 
 cd /d "%INSTALL_DIR%"
-python auth.py
+!PYTHON_CMD! auth.py
 
 pause
