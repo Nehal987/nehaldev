@@ -23,7 +23,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # CONFIGURATION
 # CONFIGURATION
-SERVER_URL = "https://fb-reset-tool-v2.fly.dev/auth" # Update this after deployment!
+SERVER_URL = "https://fb-reset-tool-2.fly.dev/auth" # Update this after deployment!
 
 # Embedded Public Key (No external file needed)
 PUBLIC_KEY_STR = r"""-----BEGIN PUBLIC KEY-----
@@ -40,10 +40,16 @@ def get_hwid():
     """Generate a stable Hardware ID (No MAC Address)."""
     try:
         if os.name == 'nt':
-            # Windows: Motherboard UUID
-            cmd = "wmic csproduct get uuid"
-            uuid_str = subprocess.check_output(cmd, shell=True).decode().split('\n')[1].strip()
-            return hashlib.sha256(uuid_str.encode()).hexdigest()
+            # Windows: Motherboard UUID (via PowerShell as wmic is deprecated)
+            cmd = "powershell -Command \"Get-WmiObject Win32_ComputerSystemProduct | Select-Object -ExpandProperty UUID\""
+            try:
+                uuid_str = subprocess.check_output(cmd, shell=True).decode().strip()
+                return hashlib.sha256(uuid_str.encode()).hexdigest()
+            except:
+                # Fallback to wmic if powershell fails
+                cmd = "wmic csproduct get uuid"
+                uuid_str = subprocess.check_output(cmd, shell=True).decode().split('\n')[1].strip()
+                return hashlib.sha256(uuid_str.encode()).hexdigest()
         elif hasattr(sys, 'getandroidapilevel'):
             # Android: Device Serial
             try:
@@ -198,7 +204,7 @@ def main():
                 auth_code = data.get("auth_code", "N/A")
                 bot_username = data.get("bot_username", "buy_Fb_auto_bot")
                 
-                print(Fore.RED + "\n[!] License Expired.")
+                print(Fore.RED + f"\n[!] {data.get('message', 'License Expired.')}")
                 print(Fore.WHITE + "------------------------------------------------")
                 print(Fore.CYAN + f" Your Auth Code : {auth_code}")
                 print(Fore.WHITE + "------------------------------------------------")
